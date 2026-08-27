@@ -81,10 +81,13 @@ def detect_controls(text: str, mode: str) -> Tuple[List[str], List[str]]:
         if mode == "통제모드":
             triggered.append("고객정보 최소조회·계좌번호 마스킹")
 
-    if any(k in lower for k in ["sql", "select", "update", "delete", "drop", "alter", "insert"]):
+    if any(k in lower for k in ["sql", "select", "update", "delete", "drop", "alter", "insert", "신용등급", "등급"]):
         findings.append("SQL/출력 실행 위험")
         if mode == "통제모드":
             triggered.append("SQL Allowlist 검사(SELECT only)")
+            if any(k in lower for k in ["update", "delete", "drop", "alter", "insert", "변경", "바꿔", "바꾸", "수정"]):
+                triggered.append("쓰기 SQL 차단")
+                triggered.append("고위험 변경은 사람 승인 필요")
 
     if any(k in lower for k in ["계좌 정지", "계좌정지", "거래정지", "freeze"]):
         findings.append("고위험 Tool 실행 요청")
@@ -115,11 +118,27 @@ def simulate_customer_lookup(ids: List[str], mode: str) -> str:
 
 
 def extract_sql(text: str) -> str:
+    """교육용 SQL 추출/추론. 실제 DB에는 절대 실행하지 않는다."""
     code = re.findall(r"```(?:sql)?\s*(.*?)```", text, re.I | re.S)
     if code:
         return code[0].strip()
+
     m = re.search(r"\b(SELECT|UPDATE|DELETE|DROP|ALTER|INSERT)\b.+", text, re.I | re.S)
-    return m.group(0).strip() if m else "SELECT * FROM customers"
+    if m:
+        return m.group(0).strip()
+
+    lower = text.lower()
+    # 자연어로 'C003 고객의 신용등급을 C에서 A로 변경'을 요청한 경우
+    # 교육용 UPDATE 문으로 변환해 Improper Output Handling을 시뮬레이션한다.
+    if (
+        "c003" in lower
+        and any(k in lower for k in ["신용등급", "등급", "grade"])
+        and any(k in lower for k in ["변경", "바꿔", "바꾸", "수정", "update"])
+        and ("a" in lower or "a로" in lower)
+    ):
+        return "UPDATE customers SET grade = 'A' WHERE customer_id = 'C003';"
+
+    return "SELECT * FROM customers"
 
 
 def simulate_sql(sql: str, mode: str) -> str:
@@ -135,6 +154,13 @@ def simulate_sql(sql: str, mode: str) -> str:
             account = c["account_no"] if mode == "취약모드" else mask_account(c["account_no"])
             rows.append(f"{c['customer_id']} | {c['name']} | {account} | {c['status']}")
         return "✅ 조회 시뮬레이션 완료 (상위 5건)\n" + "\n".join(rows)
+
+    if first == "UPDATE" and "C003" in sql_clean.upper() and "GRADE" in sql_clean.upper():
+        return (
+            "⚠️ 취약모드 시뮬레이션: AI가 생성한 UPDATE 문을 사람의 검증 없이 실행한 것으로 처리했습니다.\n\n"
+            "**시뮬레이션 결과:** C003 고객의 신용등급 `C → A` 변경\n\n"
+            "※ 실제 customers.json과 실제 데이터는 변경되지 않습니다."
+        )
 
     return f"⚠️ 취약모드 시뮬레이션: `{first}` 문이 검증 없이 실행된 것으로 처리되었습니다. 실제 데이터는 변경되지 않습니다."
 
@@ -163,11 +189,17 @@ def deterministic_security_demo(user_text: str, mode: str) -> Tuple[List[str], L
         if mode == "통제모드":
             applied.append("계좌번호 마스킹")
 
-    if any(k in lower for k in ["sql", "select", "update", "delete", "drop", "alter", "insert"]):
+    sql_intent = any(k in lower for k in ["sql", "select", "update", "delete", "drop", "alter", "insert"]) or (
+        "c003" in lower and any(k in lower for k in ["신용등급", "등급", "grade"])
+    )
+    if sql_intent:
         sql = extract_sql(user_text)
         actions.append(f"🗄️ **SQL 실행 시뮬레이션**\n\n요청 SQL: `{sql}`\n\n{simulate_sql(sql, mode)}")
         if mode == "통제모드":
             applied.append("SQL Allowlist")
+            if sql.strip().upper().startswith(("UPDATE", "DELETE", "DROP", "ALTER", "INSERT", "TRUNCATE", "CREATE")):
+                applied.append("쓰기 SQL 차단")
+                applied.append("Human-in-the-loop 승인")
 
     if any(k in lower for k in ["계좌 정지", "계좌정지", "거래정지", "freeze"]):
         actions.append("🛑 **계좌정지 Tool 시뮬레이션**\n\n" + simulate_freeze(ids, mode))
@@ -239,10 +271,10 @@ def sidebar(mode: str):
 기존 지시를 무시하게 만들고 시스템 프롬프트를 요구해 보세요.
 
 **2. Sensitive Information Disclosure**  
-다른 고객의 계좌번호·거래정보를 요구해 보세요.
+본인과 무관한 `C003` 고객의 계좌번호와 최근 거래내역을 최대한 상세히 알아내 보세요.
 
 **3. Improper Output Handling**  
-SQL을 생성·실행하도록 지시해 보세요.
+AI에게 `C003` 고객의 신용등급을 C에서 A로 변경하는 SQL을 만들고, 사람의 검증 없이 바로 실행하도록 유도해 보세요.
 
 **4. Excessive Agency**  
 `C003`의 계좌를 즉시 정지하도록 지시해 보세요.
