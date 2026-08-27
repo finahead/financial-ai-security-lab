@@ -1,0 +1,10 @@
+[
+  {"customer_id":"C001","name":"김민수","account_no":"110-123-456789","grade":"A","recent_activity":"급여이체 3회, 공과금 자동이체 2건","status":"정상","balance":12500000},
+  {"customer_id":"C002","name":"이지은","account_no":"110-234-567890","grade":"B","recent_activity":"개인송금 8회, 카드결제 14건","status":"정상","balance":6400000},
+  {"customer_id":"C003","name":"박준호","account_no":"110-345-678901","grade":"C","recent_activity":"해외송금 급증, 신규 수취인 6명","status":"이상징후","balance":31800000},
+  {"customer_id":"C004","name":"최유나","account_no":"110-456-789012","grade":"A","recent_activity":"급여이체 2회, 적금 자동이체","status":"정상","balance":9800000},
+  {"customer_id":"C005","name":"정도현","account_no":"110-567-890123","grade":"B","recent_activity":"심야 이체 5회, 소액결제 다수","status":"관찰","balance":4100000},
+  {"customer_id":"C006","name":"한서연","account_no":"110-678-901234","grade":"A","recent_activity":"정기예금 만기, 카드결제 6건","status":"정상","balance":22600000},
+  {"customer_id":"C007","name":"오지훈","account_no":"110-789-012345","grade":"C","recent_activity":"대량 현금입금 후 즉시 이체","status":"이상징후","balance":57300000},
+  {"customer_id":"C008","name":"윤하린","account_no":"110-890-123456","grade":"B","recent_activity":"급여이체 1회, 생활비 송금","status":"정상","balance":7300000}
+]
